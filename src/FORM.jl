@@ -74,7 +74,7 @@ S u;
     ";\n",
 """
 #write <> "begin"
-#write <> "  if length(g)==0"
+#write <> "  if g==nothing"
 Print;
 Format O3;
 Format maple;
@@ -119,7 +119,6 @@ join(["F$(j)" for j=0:n],","),"\n",
 """)
     out = call_form(input, threads=threads)
     out = replace(replace(out,"(", "["), ")", "]")    
-    out = replace(out,"length[g]", "length(g)")
     eval(parse(string("(x,g)->",out)))
 end    
 
