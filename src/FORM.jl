@@ -26,7 +26,8 @@ function call_form(input::String; threads=1)
 end
 
 
-function compile_f(fun::AbstractString, n::Integer; threads=1)
+function compile_f(fun, n::Integer; threads=1)
+    fun = string(fun)
     fun = replace(replace(fun,"[", "("), "]", ")")
     input = string("""
 Off Statistics;
@@ -49,7 +50,8 @@ Format maple;
     eval(parse(string("x->",out)))
 end
 
-function compile_f(fun::AbstractString, vars::Vector; threads=1)
+function compile_f(fun, vars::Vector; threads=1)
+    fun = string(fun)
     n = length(vars)
     for j=1:n
         rep = string(vars[j])
@@ -60,7 +62,8 @@ function compile_f(fun::AbstractString, vars::Vector; threads=1)
 end
 
 
-function compile_fg(fun::AbstractString, n::Integer; threads=1)
+function compile_fg(fun, n::Integer; threads=1)
+    fun = string(fun)
     fun = replace(replace(fun,"[", "("), "]", ")")
     input = string("""
 Off Statistics;
@@ -120,14 +123,15 @@ join(["F$(j)" for j=0:n],","),"\n",
     eval(parse(string("(x,g)->",out)))
 end    
 
-function compile_fg(fun::AbstractString, vars::Vector; threads=1)
+function compile_fg(fun, vars::Vector; threads=1)
+    fun = string(fun)
     n = length(vars)
     for j=1:n
         rep = string(vars[j])
         by  = string("x(",j,")")
         fun = replace(fun, rep, by)
     end
-    compile_f(fun, n, threads=threads)
+    compile_fg(fun, n, threads=threads)
 end
 
 
