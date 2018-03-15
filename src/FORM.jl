@@ -3,29 +3,22 @@ module FORM
 export call_form, compile_f, compile_fg, compile_fj
 
 function call_form(input::String; threads=1)
-    attempts = 0
-    FORM_PID=0
     path = joinpath(dirname(@__FILE__), "../deps/bin")
-    out = "Error initializing preset external channels\n"
-    while out == "Error initializing preset external channels\n" 
-        (so,si,pr) = readandwrite(`$path/tform -w$(threads) -t /tmp -M  -q -pipe 0,1 $path/pipe.frm`)
-        FORM_PID = readuntil(so,'\n')[1:end-1];
-        print(si, FORM_PID,',',getpid(),"\n\n", input,"\n\n")
-        close(si)
-        out = readstring(so)
-        close(si)
-        close(so)
-        close(pr)
-        attempts +=1
+    tdir = tempdir()
+    tmp = tempname()
+    input_file = string(tmp, ".frm")
+    output_file = string(tmp, ".out")
+    open(input_file, "w") do f
+        write(f, input)
     end
-    println(STDERR, "# of attemps to call form = ",attempts)
-    try 
-        rm("/tmp/xform$FORM_PID.str") # delete generated temporary file
-    end    
-    out
-end
+    run(pipeline(`$(path)/tform -w$(threads) -t $(tdir) -q $(input_file) `, stdout=output_file))
+    output = join(readlines(output_file),'\n')
+    rm(input_file) 
+    rm(output_file) 
+    output
+end    
 
-
+    
 function compile_f(fun, n::Integer; threads=1)
     fun = string(fun)
     fun = replace(replace(fun,"[", "("), "]", ")")
