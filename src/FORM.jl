@@ -2,7 +2,7 @@ module FORM
 
 export call_form, compile_f, compile_fg, compile_fj
 
-function call_form(input::String; threads=1)
+function call_form(input::String; threads=1, keep_files::Bool=false)
     path = joinpath(dirname(@__FILE__), "../deps/bin")
     tdir = tempdir()
     tmp = tempname()
@@ -13,37 +13,40 @@ function call_form(input::String; threads=1)
     end
     run(pipeline(`$(path)/tform -w$(threads) -t $(tdir) -q $(input_file) `, stdout=output_file))
     output = join(readlines(output_file),'\n')
-    rm(input_file) 
-    rm(output_file) 
+    if !keep_files
+        rm(input_file) 
+        rm(output_file) 
+    end
     output
 end    
 
     
-function compile_f(fun, n::Integer; threads=1)
+function compile_f(fun, n::Integer; pars::Vector=[], threads=1, opt::String="O2", keep_files::Bool=false)
     fun = string(fun)
     fun = replace(replace(fun,"[", "("), "]", ")")
     input = string("""
 Off Statistics;
+Format $(opt);
 V x;
-""","Local f0 = ",
-    fun,
-    ";\n",
-"""
+V p;
+Local F = $(fun) 
 #write <> "begin"
 Print;
-Format O3;
-Format maple;
 .sort;
-#write <> "  return f0"
+#write <> "  return F"
 #write <> "end"
 .end
 """)
     out = call_form(input, threads=threads)
     out = replace(replace(out,"(", "["), ")", "]")    
-    eval(parse(string("x->",out)))
+    if parameters
+        eval(parse(string("(x,p)->",out)))
+    else
+        eval(parse(string("x->",out)))
+    end
 end
 
-function compile_f(fun, vars::Vector; threads=1)
+function compile_f(fun, vars::Vector; threads=1, opt::String="O2", keep_files::Bool=false)
     fun = string(fun)
     n = length(vars)
     for j=1:n
@@ -51,71 +54,79 @@ function compile_f(fun, vars::Vector; threads=1)
         by  = string("x(",j,")")
         fun = replace(fun, rep, by)
     end
-    compile_f(fun, n, threads=threads)
+    for j=1:length(pars)
+        rep = string(pars[j])
+        by  = string("p(",j,")")
+        fun = replace(fun, rep, by)
+    end
+    compile_f(fun, n,  parameters=length(pars)>0, threads=threads, opt=opt, keep_files=keep_files)
 end
 
 
-function compile_fg(fun, n::Integer; threads=1)
+function compile_fg(fun, n::Integer; parameters::Bool=false, threads=1, opt::String="O2", keep_files::Bool=false)
     fun = string(fun)
     fun = replace(replace(fun,"[", "("), "]", ")")
     input = string("""
 Off Statistics;
+Format $(opt);
 V x;
+V p;
 S u;
-""","Local f0 = ",
-    fun,
-    ";\n",
-"""
+#define n "$(n)"
+Local F = $(fun);
 #write <> "begin"
-#write <> "  if g==nothing"
+#write <> "  if G==nothing"
 Print;
-Format O3;
-Format maple;
 .sort;
-#write <> "    return f0"
+#write <> "    return F"
 #write <> "  else"
 I i;
 S m, xx, u;
-Hide f0;
-#do i=1,$(n)
-    Local f'i' = f0;
+Hide F;
+#do i=1,'n'
+    Local G'i' = F;
     id x('i') = xx;
     id xx^m? = m*xx^(m-1);
     id xx = x('i');
     .sort
-    Hide f'i';
+    Hide G'i';
 #enddo
 .sort;
-""","Local H = ",
-    join(["u^$(j+1)*f$(j)" for j=0:n],:+),
-    ";\n",
-"""
+I i;
+Local H = u^0*F 
+#do i=1,'n'
+     +u^'i'*G'i'
+#enddo     
+;
 B u;
 .sort
 #optimize H
 B u;
 .sort
-""",
-    join(["Local F$(j) = H[u^$(j+1)];\n" for j=0:n], ""),
-"""
+Local FF = H[u^0];
+#do i=1,'n'
+    Local GG'i'   = H[u^'i'];
+#enddo    
 .sort
-#write <> "%4O",
-""", "#write <> \"\n   f=%e   ",
-join(["g($(j))=%e" for j=1:n],"    "),
-"\", ",
-join(["F$(j)" for j=0:n],","),"\n",
-"""
-#write <> "    return f"
+#write <> "%O"
+#do i=1,'n'
+#write <> "      G('i')=%e", GG'i'
+#enddo    
+#write <> "      return %e", FF
 #write <> "  end"
 #write <> "end"
 .end
 """)
-    out = call_form(input, threads=threads)
+    out = call_form(input, threads=threads, keep_files=keep_files)
     out = replace(replace(out,"(", "["), ")", "]")    
-    eval(parse(string("(x,g)->",out)))
+    if parameters
+        eval(parse(string("(G,x,p)->",out)))
+    else
+        eval(parse(string("(G,x)->",out)))
+    end
 end    
 
-function compile_fg(fun, vars::Vector; threads=1)
+function compile_fg(fun, vars::Vector; pars::Vector=[], threads=1, opt::String="O2", keep_files::Bool=false)
     fun = string(fun)
     n = length(vars)
     for j=1:n
@@ -123,21 +134,27 @@ function compile_fg(fun, vars::Vector; threads=1)
         by  = string("x(",j,")")
         fun = replace(fun, rep, by)
     end
-    compile_fg(fun, n, threads=threads)
+    for j=1:length(pars)
+        rep = string(pars[j])
+        by  = string("p(",j,")")
+        fun = replace(fun, rep, by)
+    end
+    compile_fg(fun, n, parameters=length(pars)>0, threads=threads, opt=opt, keep_files=keep_files)
 end
 
 
-function compile_fj(funs::Vector, n::Integer; threads=1, opt::String="O2")
+function compile_fj(funs::Vector, n::Integer;  parameters::Bool=false, threads=1, opt::String="O2", keep_files::Bool=false)
     m = length(funs)
     funs = [replace(replace(string(fun),"[", "("), "]", ")") for fun in funs]
     input = string("""
 Off Statistics;
 Format $(opt);
 V x;
+V p;
 #define m "$(m)"
 #define n "$(n)"
 """,
-join(["Local f$(j) = $(funs[j]);\n" for j=1:m]),
+join(["Local F$(j) = $(funs[j]);\n" for j=1:m]),
 """
 #write <> "begin"
 #write <> "  if J==nothing"
@@ -146,7 +163,7 @@ I i, j;
 S u, v;
 Local H = 
 #do i=1,'m'
-    +u^'i'*f'i' 
+    +u^'i'*F'i' 
 #enddo
 ;
 B u;
@@ -155,35 +172,35 @@ B u;
 B u;
 .sort
 #do i=1,'m'
-    Local F'i'   = H[u^'i'];
+    Local FF'i'   = H[u^'i'];
 #enddo
 .sort
 #write <> "%O"
 #do i=1,'m'
-#write <> "      F('i')=%e", F'i'
+#write <> "      F('i')=%e", FF'i'
 #enddo
 #write <> "  else"
 .sort;
 S k, xx;
 #do i=1,'m'
-Hide f'i';
+Hide F'i';
 #enddo
 #do i=1,'m'
 #do j=1,'n'
-    Local j'i'j'j' = f'i';
+    Local J'i'J'j' = F'i';
     id x('j') = xx;
     id xx^k? = k*xx^(k-1);
     id xx = x('j');
     .sort
-    Hide j'i'j'j';
+    Hide J'i'J'j';
 #enddo
 #enddo
 .sort
 Local H = 
 #do i=1,'m'
-    +u^'i'*v^0*f'i' 
+    +u^'i'*v^0*F'i' 
 #do j=1,'n'
-    +u^'i'*v^'j'*j'i'j'j'
+    +u^'i'*v^'j'*J'i'J'j'
 #enddo
 #enddo
 ;
@@ -193,34 +210,38 @@ B u, v;
 B u,v;
 .sort
 #do i=1,'m'
-    Local F'i'   = H[u^'i'*v^0];
+    Local FF'i'   = H[u^'i'*v^0];
 #do j=1,'n'
-    Local J'i'J'j' = H[u^'i'*v^'j'];
+    Local JJ'i'J'j' = H[u^'i'*v^'j'];
 #enddo
 #enddo
 .sort
 #write <> "%O"
 #write <> "    if F!=nothing"
 #do i=1,'m'
-#write <> "      F('i')=%e", F'i'
+#write <> "      F('i')=%e", FF'i'
 #enddo
 #write <> "    end"
 #do i=1,'m'
 #do j=1,'n'
-#write <> "      J('i','j')=%e", J'i'J'j'
+#write <> "      J('i','j')=%e", JJ'i'J'j'
 #enddo
 #enddo
 #write <> "  end"
 #write <> "end"
 .end
 """)
-    out = call_form(input, threads=threads)
+    out = call_form(input, threads=threads, keep_files=keep_files)
     out = replace(replace(out,"(", "["), ")", "]")    
-    eval(parse(string("(F,J,x)->",out)))
+    if parameters
+        eval(parse(string("(F,J,x,p)->",out)))
+    else
+        eval(parse(string("(F,J,x)->",out)))
+    end
 end    
 
 
-function compile_fj(funs::Vector, vars::Vector; threads=1, opt::String="O2")
+function compile_fj(funs::Vector, vars::Vector; pars::Vector=[], threads=1, opt::String="O2", keep_files::Bool=false)
     m = length(funs)
     n = length(vars)
     funs=[string(fun) for fun in funs]
@@ -231,7 +252,14 @@ function compile_fj(funs::Vector, vars::Vector; threads=1, opt::String="O2")
             funs[i] = replace(funs[i], rep, by)
         end
     end
-    compile_fj(funs, n, threads=threads, opt=opt)
+    for j=1:length(pars)
+        rep = string(pars[j])
+        by  = string("p(",j,")")
+        for i=1:m
+            funs[i] = replace(funs[i], rep, by)
+        end
+    end
+    compile_fj(funs, n, parameters=length(pars)>0, threads=threads, opt=opt, keep_files=keep_files)
 end
 
 
