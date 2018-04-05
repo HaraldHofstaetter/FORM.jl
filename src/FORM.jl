@@ -1,6 +1,7 @@
 module FORM
 
 export call_form, compile_f, compile_fg, compile_fj
+export call_form_to_c, compile_fj_to_c
 
 function call_form(input::String; threads=1, keep_files::Bool=false)
     path = joinpath(dirname(@__FILE__), "../deps/bin")
@@ -261,6 +262,118 @@ function compile_fj(funs::Vector, vars::Vector; pars::Vector=[], threads=1, opt:
     end
     compile_fj(funs, n, parameters=length(pars)>0, threads=threads, opt=opt, keep_files=keep_files)
 end
+
+
+
+function call_form_to_c(input::String, output_file::String; threads=1, keep_files::Bool=false)
+    path = joinpath(dirname(@__FILE__), "../deps/bin")
+    tdir = tempdir()
+    tmp = tempname()
+    input_file = string(tmp, ".frm")
+    open(input_file, "w") do f
+        write(f, input)
+    end
+    sed_cmd = raw"s/x(\([0-9]*\))/x[\1-1]/"
+    run(pipeline(`$(path)/tform -w$(threads) -t $(tdir) -q $(input_file)`, 
+                 `sed $(sed_cmd)`, 
+                 output_file))
+    if !keep_files
+        rm(input_file) 
+    end
+end    
+
+
+function compile_fj_to_c(funs::Vector, n::Integer, output_file::String; 
+                         fun_name::String="eval_form",
+                         threads=1, opt::String="O2", keep_files::Bool=false)
+    m = length(funs)
+    funs = [replace(replace(string(fun),"[", "("), "]", ")") for fun in funs]
+    input = string("""
+Off Statistics;
+Format $(opt);
+Format C;
+V x;
+V p;
+#define m "$(m)"
+#define n "$(n)"
+""",
+join(["Local F$(j) = $(funs[j]);\n" for j=1:m]),
+"""
+.sort;
+I i, j;
+S u, v;
+S k, xx;
+#do i=1,'m'
+Hide F'i';
+#enddo
+#do i=1,'m'
+#do j=1,'n'
+    Local J'i'J'j' = F'i';
+    id x('j') = xx;
+    id xx^k? = k*xx^(k-1);
+    id xx = x('j');
+    .sort
+    Hide J'i'J'j';
+#enddo
+#enddo
+.sort
+Local H = 
+#do i=1,'m'
+    +u^'i'*v^0*F'i' 
+#do j=1,'n'
+    +u^'i'*v^'j'*J'i'J'j'
+#enddo
+#enddo
+;
+B u, v;
+.sort
+#optimize H
+B u,v;
+.sort
+#do i=1,'m'
+    Local FF'i'   = H[u^'i'*v^0];
+#do j=1,'n'
+    Local JJ'i'J'j' = H[u^'i'*v^'j'];
+#enddo
+#enddo
+.sort
+Format C;
+#write <> "#include<math.h>"
+#write <> "void $(fun_name)(double x['n'], double F['m'], double J['n']['m'])"
+#write <> "{"
+#do i=1,'optimmaxvar_'
+#write<> "    double Z'i'_;"
+#enddo
+#write <> "%O"
+#do i=1,'m'
+#write <> "   F[{'i'-1}]=%e", FF'i'
+#enddo
+#do i=1,'m'
+#do j=1,'n'
+#write <> "   J[{'j'-1}][{'i'-1}]=%e", JJ'i'J'j'
+#enddo
+#enddo
+#write <> "}"
+.end
+    """)
+    call_form_to_c(input, output_file, threads=threads, keep_files=keep_files)
+end
+
+function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String; 
+                         fun_name::String="eval_form",threads=1, opt::String="O2", keep_files::Bool=false)
+    m = length(funs)
+    n = length(vars)
+    funs=[string(fun) for fun in funs]
+    for j=1:n
+        rep = string(vars[j])
+        by  = string("x(",j,")")
+        for i=1:m
+            funs[i] = replace(funs[i], rep, by)
+        end
+    end
+    compile_fj_to_c(funs, n, output_file, fun_name=fun_name, threads=threads, opt=opt, keep_files=keep_files)
+end
+
 
 
 end # module FORM
