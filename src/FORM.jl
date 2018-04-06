@@ -265,7 +265,8 @@ end
 
 
 
-function call_form_to_c(input::String, output_file::String; threads=1, keep_files::Bool=false)
+function call_form_to_c(input::String, output_file::String; threads=1, 
+                        keep_files::Bool=false, sed_cmd::String="")
     path = joinpath(dirname(@__FILE__), "../deps/bin")
     tdir = tempdir()
     tmp = tempname()
@@ -273,7 +274,9 @@ function call_form_to_c(input::String, output_file::String; threads=1, keep_file
     open(input_file, "w") do f
         write(f, input)
     end
-    sed_cmd = raw"s/x(\([0-9]*\))/x[\1-1]/"
+    # with "Format C",  assignments of type =x[..] or =p[..] are not correctly
+    # handled, we use sed to correct the output of form.
+    sed_cmd = string(raw"s/=\([x|p]\)(\([0-9]*\))/=\1[\2-1]/;", sed_cmd)
     run(pipeline(`$(path)/tform -w$(threads) -t $(tdir) -q $(input_file)`, 
                  `sed $(sed_cmd)`, 
                  output_file))
@@ -284,7 +287,9 @@ end
 
 
 function compile_fj_to_c(funs::Vector, n::Integer, output_file::String; 
-                         fun_name::String="eval_form",
+                         fun_name::String="eval_form", number_type::String="double",
+                         opening::String="#include<math.h>",
+                         parameters::Bool=false, sed_cmd::String="",
                          threads=1, opt::String="O2", keep_files::Bool=false)
     m = length(funs)
     funs = [replace(replace(string(fun),"[", "("), "]", ")") for fun in funs]
@@ -338,11 +343,14 @@ B u,v;
 #enddo
 .sort
 Format C;
-#write <> "#include<math.h>"
-#write <> "void $(fun_name)(double x['n'], double F['m'], double J['n']['m'])"
+""",
+join(["#write <> \"$(l)\"\n" for l in split(opening,'\n')]),
+"""
+#write <> "void $(fun_name)($(number_type) F['m'], $(number_type) J['n']['m'],"
+#write <> "                 $(number_type) x['n'], $(number_type) p[])"
 #write <> "{"
 #do i=1,'optimmaxvar_'
-#write<> "    double Z'i'_;"
+#write<> "    $(number_type) Z'i'_;"
 #enddo
 #write <> "%O"
 #do i=1,'m'
@@ -356,11 +364,13 @@ Format C;
 #write <> "}"
 .end
     """)
-    call_form_to_c(input, output_file, threads=threads, keep_files=keep_files)
+    call_form_to_c(input, output_file, threads=threads, keep_files=keep_files, sed_cmd=sed_cmd)
 end
 
-function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String; 
-                         fun_name::String="eval_form",threads=1, opt::String="O2", keep_files::Bool=false)
+function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String; pars::Vector=[], 
+                         fun_name::String="eval_form", number_type::String="double", 
+                         opening::String="#include<math.h>", threads=1, sed_cmd::String="", 
+                         opt::String="O2", keep_files::Bool=false)
     m = length(funs)
     n = length(vars)
     funs=[string(fun) for fun in funs]
@@ -371,7 +381,17 @@ function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String;
             funs[i] = replace(funs[i], rep, by)
         end
     end
-    compile_fj_to_c(funs, n, output_file, fun_name=fun_name, threads=threads, opt=opt, keep_files=keep_files)
+    for j=1:length(pars)
+        rep = string(pars[j])
+        by  = string("p(",j,")")
+        for i=1:m
+            funs[i] = replace(funs[i], rep, by)
+        end
+    end
+    
+    compile_fj_to_c(funs, n, output_file, parameters=length(pars)>0, fun_name=fun_name, 
+                    number_type=number_type, opening=opening, sed_cmd=sed_cmd,
+                    threads=threads, opt=opt, keep_files=keep_files)
 end
 
 
