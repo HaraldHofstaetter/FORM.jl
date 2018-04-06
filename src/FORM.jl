@@ -1,7 +1,8 @@
 module FORM
 
 export call_form, compile_f, compile_fg, compile_fj
-export call_form_to_c, compile_fj_to_c
+export call_form_to_c, compile_fj_to_c 
+
 
 function call_form(input::String; threads=1, keep_files::Bool=false)
     path = joinpath(dirname(@__FILE__), "../deps/bin")
@@ -367,10 +368,10 @@ join(["#write <> \"$(l)\"\n" for l in split(opening,'\n')]),
     call_form_to_c(input, output_file, threads=threads, keep_files=keep_files, sed_cmd=sed_cmd)
 end
 
+
 function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String; pars::Vector=[], 
-                         fun_name::String="eval_form", number_type::String="double", 
-                         opening::String="#include<math.h>", threads=1, sed_cmd::String="", 
-                         opt::String="O2", keep_files::Bool=false)
+                         fun_name::String="eval_form",
+                         threads=1, opt::String="O2", keep_files::Bool=false)
     m = length(funs)
     n = length(vars)
     funs=[string(fun) for fun in funs]
@@ -388,12 +389,31 @@ function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String; pars::
             funs[i] = replace(funs[i], rep, by)
         end
     end
-    
-    compile_fj_to_c(funs, n, output_file, parameters=length(pars)>0, fun_name=fun_name, 
-                    number_type=number_type, opening=opening, sed_cmd=sed_cmd,
-                    threads=threads, opt=opt, keep_files=keep_files)
-end
 
+
+   compile_fj_to_c(funs, n, output_file, parameters=length(pars)>0, 
+                         fun_name=fun_name, threads=threads, opt=opt, keep_files=keep_files,
+                         number_type="__number_type__",
+                         sed_cmd=raw"s/\([0-9]*\)\.\/\([0-9]*\)\./\1.q\/\2.q/",
+                         opening="""
+#if defined(COMPLEX)                
+#  include<complex.h>
+#  define pow cpow
+#  define __number_type__ double complex
+#elif defined(FLOAT128)
+#  include<quadmath.h>
+#  define pow powq
+#  define __number_type__ __float128 
+#elif defined(COMPLEX128)
+#  include<quadmath.h>
+#  define pow cpowq
+#  define __number_type__ __complex128 
+#else
+#  include<math.h>
+#  define __number_type__ double 
+#endif
+""")
+end
 
 
 end # module FORM
