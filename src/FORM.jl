@@ -354,14 +354,18 @@ join(["#write <> \"$(l)\"\n" for l in split(opening,'\n')]),
 #write<> "    $(number_type) Z'i'_;"
 #enddo
 #write <> "%O"
+#write <> "   if (F!=0) {"
 #do i=1,'m'
-#write <> "   F[{'i'-1}]=%e", FF'i'
+#write <> "       F[{'i'-1}]=%e", FF'i'
 #enddo
+#write <> "   }"
+#write <> "   if (J!=0) {"
 #do i=1,'m'
 #do j=1,'n'
-#write <> "   J[{'j'-1}][{'i'-1}]=%e", JJ'i'J'j'
+#write <> "       J[{'j'-1}][{'i'-1}]=%e", JJ'i'J'j'
 #enddo
 #enddo
+#write <> "   }"
 #write <> "}"
 .end
     """)
@@ -394,7 +398,7 @@ function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String; pars::
    compile_fj_to_c(funs, n, output_file, parameters=length(pars)>0, 
                          fun_name=fun_name, threads=threads, opt=opt, keep_files=keep_files,
                          number_type="__number_type__",
-                         sed_cmd=raw"s/\([0-9]*\)\.\/\([0-9]*\)\./\1.q\/\2.q/",
+                         sed_cmd=raw"s/\([0-9]*\)\.\/\([0-9]*\)\./\1.q\/\2.q/g",
                          opening="""
 #if defined(COMPLEX)                
 #  include<complex.h>
