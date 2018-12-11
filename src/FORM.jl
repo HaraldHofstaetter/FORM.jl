@@ -25,7 +25,7 @@ end
     
 function compile_f(fun, n::Integer; pars::Vector=[], threads=1, opt::String="O2", keep_files::Bool=false)
     fun = string(fun)
-    fun = replace(replace(fun,"[", "("), "]", ")")
+    fun = replace(replace(fun,"[" => "("), "]" => ")")
     input = string("""
 Off Statistics;
 Format $(opt);
@@ -40,7 +40,7 @@ Print;
 .end
 """)
     out = call_form(input, threads=threads)
-    out = replace(replace(out,"(", "["), ")", "]")    
+    out = replace(replace(out,"(" => "["), ")" => "]")    
     if parameters
         eval(parse(string("(x,p)->",out)))
     else
@@ -54,12 +54,12 @@ function compile_f(fun, vars::Vector; threads=1, opt::String="O2", keep_files::B
     for j=1:n
         rep = string(vars[j])
         by  = string("x(",j,")")
-        fun = replace(fun, rep, by)
+        fun = replace(fun, rep => by)
     end
     for j=1:length(pars)
         rep = string(pars[j])
         by  = string("p(",j,")")
-        fun = replace(fun, rep, by)
+        fun = replace(fun, rep => by)
     end
     compile_f(fun, n,  parameters=length(pars)>0, threads=threads, opt=opt, keep_files=keep_files)
 end
@@ -67,7 +67,7 @@ end
 
 function compile_fg(fun, n::Integer; parameters::Bool=false, threads=1, opt::String="O2", keep_files::Bool=false)
     fun = string(fun)
-    fun = replace(replace(fun,"[", "("), "]", ")")
+    fun = replace(replace(fun,"[" => "("), "]" => ")")
     input = string("""
 Off Statistics;
 Format $(opt);
@@ -120,7 +120,7 @@ Local FF = H[u^0];
 .end
 """)
     out = call_form(input, threads=threads, keep_files=keep_files)
-    out = replace(replace(out,"(", "["), ")", "]")    
+    out = replace(replace(out,"(" => "["), ")" => "]")    
     if parameters
         eval(parse(string("(G,x,p)->",out)))
     else
@@ -134,12 +134,12 @@ function compile_fg(fun, vars::Vector; pars::Vector=[], threads=1, opt::String="
     for j=1:n
         rep = string(vars[j])
         by  = string("x(",j,")")
-        fun = replace(fun, rep, by)
+        fun = replace(fun, rep => by)
     end
     for j=1:length(pars)
         rep = string(pars[j])
         by  = string("p(",j,")")
-        fun = replace(fun, rep, by)
+        fun = replace(fun, rep => by)
     end
     compile_fg(fun, n, parameters=length(pars)>0, threads=threads, opt=opt, keep_files=keep_files)
 end
@@ -147,7 +147,7 @@ end
 
 function compile_fj(funs::Vector, n::Integer;  parameters::Bool=false, threads=1, opt::String="O2", keep_files::Bool=false)
     m = length(funs)
-    funs = [replace(replace(string(fun),"[", "("), "]", ")") for fun in funs]
+    funs = [replace(replace(string(fun),"[" => "("), "]" => ")") for fun in funs]
     input = string("""
 Off Statistics;
 Format $(opt);
@@ -234,7 +234,7 @@ B u,v;
 .end
 """)
     out = call_form(input, threads=threads, keep_files=keep_files)
-    out = replace(replace(out,"(", "["), ")", "]")    
+    out = replace(replace(out,"(" => "["), ")" => "]")    
     if parameters
         eval(parse(string("(F,J,x,p)->",out)))
     else
@@ -251,14 +251,14 @@ function compile_fj(funs::Vector, vars::Vector; pars::Vector=[], threads=1, opt:
         rep = string(vars[j])
         by  = string("x(",j,")")
         for i=1:m
-            funs[i] = replace(funs[i], rep, by)
+            funs[i] = replace(funs[i], rep => by)
         end
     end
     for j=1:length(pars)
         rep = string(pars[j])
         by  = string("p(",j,")")
         for i=1:m
-            funs[i] = replace(funs[i], rep, by)
+            funs[i] = replace(funs[i], rep => by)
         end
     end
     compile_fj(funs, n, parameters=length(pars)>0, threads=threads, opt=opt, keep_files=keep_files)
@@ -293,7 +293,7 @@ function compile_fj_to_c(funs::Vector, n::Integer, output_file::String;
                          parameters::Bool=false, sed_cmd::String="",
                          threads=1, opt::String="O2", keep_files::Bool=false)
     m = length(funs)
-    funs = [replace(replace(string(fun),"[", "("), "]", ")") for fun in funs]
+    funs = [replace(replace(string(fun),"[" => "("), "]" => ")") for fun in funs]
     input = string("""
 Off Statistics;
 Format $(opt);
@@ -383,14 +383,14 @@ function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String; pars::
         rep = string(vars[j])
         by  = string("x(",j,")")
         for i=1:m
-            funs[i] = replace(funs[i], rep, by)
+            funs[i] = replace(funs[i], rep => by)
         end
     end
     for j=1:length(pars)
         rep = string(pars[j])
         by  = string("p(",j,")")
         for i=1:m
-            funs[i] = replace(funs[i], rep, by)
+            funs[i] = replace(funs[i], rep => by)
         end
     end
 

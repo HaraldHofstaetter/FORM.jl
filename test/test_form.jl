@@ -1,4 +1,5 @@
 using FORM
+using Libdl
 
 compile_fj_to_c(["1/3*x1+x2^7-p1", "2*x1+2*x2-p2"], ["x1", "x2"], 
                 "test_form.c", pars=["p1", "p2"])
@@ -12,9 +13,9 @@ p=[-1.0,4.0]
 F=zeros(2)
 J=zeros(2,2)
 
-H0 = Libdl.dlopen(string("test_form_double.", Libdl.dlext))
-H = Libdl.dlsym(H0, "eval_form")
-fj! = (F,J,x,p) -> ccall(H, Void, (Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble},Ptr{Cdouble}), F, J, x, p)
+H0 = dlopen(string("./test_form_double.", dlext))
+H = dlsym(H0, "eval_form")
+fj! = (F,J,x,p) -> ccall(H, Nothing, (Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble},Ptr{Cdouble}), F, J, x, p)
 
 fj!(F,J,x,p)
 
@@ -34,10 +35,10 @@ p=[-1.0+3im,4.0-1im]
 F=zeros(Complex{Float64}, 2)
 J=zeros(Complex{Float64}, 2,2)
 
-H0 = Libdl.dlopen(string("test_form_complex.", Libdl.dlext))
-H = Libdl.dlsym(H0, "eval_form")
-fj! = (F,J,x,p) -> ccall(H, Void, (Ptr{Complex{Cdouble}}, Ptr{Complex{Cdouble}}, 
-                                   Ptr{Complex{Cdouble}}, Ptr{Complex{Cdouble}}), F, J, x, p)
+H0 = dlopen(string("./test_form_complex.", dlext))
+H = dlsym(H0, "eval_form")
+fj! = (F,J,x,p) -> ccall(H, Nothing, (Ptr{Complex{Cdouble}}, Ptr{Complex{Cdouble}}, 
+                         Ptr{Complex{Cdouble}}, Ptr{Complex{Cdouble}}), F, J, x, p)
 
 fj!(F,J,x,p)
 
@@ -59,9 +60,9 @@ p=Float128[-1,4]
 F=zeros(Float128,2)
 J=zeros(Float128,2,2)
 
-H0 = Libdl.dlopen(string("test_form_float128.", Libdl.dlext))
-H = Libdl.dlsym(H0, "eval_form")
-fj! = (F,J,x,p) -> ccall(H, Void, (Ptr{Float128}, Ptr{Float128}, Ptr{Float128}, Ptr{Float128}), F, J, x, p)
+H0 = dlopen(string("./test_form_float128.", dlext))
+H = dlsym(H0, "eval_form")
+fj! = (F,J,x,p) -> ccall(H, Nothing, (Ptr{Float128}, Ptr{Float128}, Ptr{Float128}, Ptr{Float128}), F, J, x, p)
 
 fj!(F,J,x,p)
 
@@ -83,9 +84,9 @@ p=Complex{Float128}[-1+3im,4-1im]
 F=zeros(Complex{Float128}, 2)
 J=zeros(Complex{Float128}, 2,2)
 
-H0 = Libdl.dlopen(string("test_form_complex128.", Libdl.dlext))
-H = Libdl.dlsym(H0, "eval_form")
-fj! = (F,J,x,p) -> ccall(H, Void, (Ptr{Complex{Float128}}, Ptr{Complex{Float128}}, 
+H0 = dlopen(string("./test_form_complex128.", dlext))
+H = dlsym(H0, "eval_form")
+fj! = (F,J,x,p) -> ccall(H, Nothing, (Ptr{Complex{Float128}}, Ptr{Complex{Float128}}, 
                                    Ptr{Complex{Float128}}, Ptr{Complex{Float128}}), F, J, x, p)
 
 fj!(F,J,x,p)
