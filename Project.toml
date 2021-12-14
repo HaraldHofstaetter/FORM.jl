@@ -1,0 +1,9 @@
+name = "FORM"
+uuid = "479645b5-656e-48ae-90a8-f01135724cb7"
+authors = ["HaraldHofstaetter <hofi@harald-hofstaetter.at>"]
+version = "0.1.0"
+
+[deps]
+
+[compat]
+julia = "1"
