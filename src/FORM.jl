@@ -1,7 +1,7 @@
 module FORM
 
 export call_form, compile_f, compile_fg, compile_fj
-export call_form_to_c, compile_fj_to_c 
+export call_form_to_c, compile_f_to_c, compile_fg_to_c, compile_fj_to_c 
 
 
 function call_form(input::String; threads=1, keep_files::Bool=false)
@@ -265,6 +265,8 @@ function compile_fj(funs::Vector, vars::Vector; pars::Vector=[], threads=1, opt:
 end
 
 
+########################################################################################
+
 
 function call_form_to_c(input::String, output_file::String; threads=1, 
                         keep_files::Bool=false, sed_cmd::String="")
@@ -285,6 +287,186 @@ function call_form_to_c(input::String, output_file::String; threads=1,
         rm(input_file) 
     end
 end    
+
+
+_default_opening = """
+#if defined(COMPLEX)                
+#  define __number_type__ double complex
+#elif defined(FLOAT128)
+#  define __number_type__ __float128 
+#elif defined(COMPLEX128)
+#  define __number_type__ __complex128 
+#else
+#  define __number_type__ double 
+#endif
+
+static __number_type__ pow(__number_type__ base, int exp)
+{
+    __number_type__ result = 1.0;
+    for (;;)
+    {
+        if (exp & 1)
+            result *= base;
+        exp >>= 1;
+        if (!exp)
+            break;
+        base *= base;
+    }
+    return result;
+}
+"""
+
+
+function compile_f_to_c(fun, n::Integer, output_file::String; 
+                        fun_name::String="eval_form", number_type::String="double",
+                        opening::String="#include<math.h>",
+                        parameters::Bool=false, sed_cmd::String="",
+                        threads=1, opt::String="O2", keep_files::Bool=false)
+    fun = string(fun)
+    fun = replace(replace(fun,"[" => "("), "]" => ")")
+    input = string("""
+Off Statistics;
+Format $(opt);
+Format C;
+V x;
+V p;
+Local F = $(fun); 
+.sort
+#optimize F
+Format C;
+""",
+join(["#write <> \"$(l)\"\n" for l in split(opening,'\n')]),
+"""
+#write <> "$(number_type) $(fun_name)($(number_type) x[], $(number_type) p[])"
+#write <> "{"
+#do i=1,'optimmaxvar_'
+#write<> "    $(number_type) Z'i'_;"
+#enddo
+#write <> "%O"
+#write <> "    return %e", F
+#write <> "}"
+.end
+    """)
+    call_form_to_c(input, output_file, threads=threads, keep_files=keep_files, sed_cmd=sed_cmd)
+end
+
+
+function compile_f_to_c(fun, vars::Vector, output_file::String; pars::Vector=[], 
+                         fun_name::String="eval_form",
+                         threads=1, opt::String="O2", keep_files::Bool=false)
+    n = length(vars)
+    fun = string(fun)
+    for j=1:n
+        rep = string(vars[j])
+        by  = string("x(",j,")")
+        fun = replace(fun, rep => by)
+    end
+    for j=1:length(pars)
+        rep = string(pars[j])
+        by  = string("p(",j,")")
+        fun = replace(fun, rep => by)
+    end
+
+    compile_f_to_c(fun, n, output_file, parameters=length(pars)>0, 
+                   fun_name=fun_name, threads=threads, opt=opt, keep_files=keep_files,
+                   number_type="__number_type__",
+                   sed_cmd=raw"s/\([0-9]*\)\.\/\([0-9]*\)\./\1.q\/\2.q/g;s/pow(/ipow(/g",
+                   opening=_default_opening)
+end
+
+
+function compile_fg_to_c(fun, n::Integer, output_file::String; 
+                        fun_name::String="eval_form", number_type::String="double",
+                        opening::String="#include<math.h>",
+                        parameters::Bool=false, sed_cmd::String="",
+                        threads=1, opt::String="O2", keep_files::Bool=false)
+    fun = string(fun)
+    fun = replace(replace(fun,"[" => "("), "]" => ")")
+    input = string("""
+Off Statistics;
+Format $(opt);
+Format C;
+V x;
+V p;
+S u;
+#define n "$(n)"
+Local F = $(fun);
+.sort;
+I i;
+S m, xx, u;
+Hide F;
+#do i=1,'n'
+    Local G'i' = F;
+    id x('i') = xx;
+    id xx^m? = m*xx^(m-1);
+    id xx = x('i');
+    .sort
+    Hide G'i';
+#enddo
+.sort;
+I i;
+Local H = u^0*F 
+#do i=1,'n'
+     +u^'i'*G'i'
+#enddo     
+;
+B u;
+.sort
+#optimize H
+B u;
+.sort
+Local FF = H[u^0];
+#do i=1,'n'
+    Local GG'i'   = H[u^'i'];
+#enddo    
+.sort
+Format C;
+""",
+
+join(["#write <> \"$(l)\"\n" for l in split(opening,'\n')]),
+"""
+#write <> "$(number_type) $(fun_name)($(number_type) G['n'],"
+#write <> "                           $(number_type) x['n'], $(number_type) p[])"
+#write <> "{"
+#do i=1,'optimmaxvar_'
+#write <> "   $(number_type) Z'i'_;"
+#enddo
+#write <> "%O"
+#write <> "   if (G!=0) {"
+#do i=1,'n'
+#write <> "       G['i'-1]=%e", GG'i'
+#enddo    
+#write <> "   }"
+#write <> "   return %e", FF
+#write <> "}"
+.end
+""")
+    call_form_to_c(input, output_file, threads=threads, keep_files=keep_files, sed_cmd=sed_cmd)
+end
+
+
+function compile_fg_to_c(fun, vars::Vector, output_file::String; pars::Vector=[], 
+                         fun_name::String="eval_form",
+                         threads=1, opt::String="O2", keep_files::Bool=false)
+    n = length(vars)
+    fun = string(fun)
+    for j=1:n
+        rep = string(vars[j])
+        by  = string("x(",j,")")
+        fun = replace(fun, rep => by)
+    end
+    for j=1:length(pars)
+        rep = string(pars[j])
+        by  = string("p(",j,")")
+        fun = replace(fun, rep => by)
+    end
+
+    compile_fg_to_c(fun, n, output_file, parameters=length(pars)>0, 
+                    fun_name=fun_name, threads=threads, opt=opt, keep_files=keep_files,
+                    number_type="__number_type__",
+                    sed_cmd=raw"s/\([0-9]*\)\.\/\([0-9]*\)\./\1.q\/\2.q/g;s/pow(/ipow(/g",
+                    opening=_default_opening)
+end
 
 
 function compile_fj_to_c(funs::Vector, n::Integer, output_file::String; 
@@ -394,29 +576,11 @@ function compile_fj_to_c(funs::Vector, vars::Vector, output_file::String; pars::
         end
     end
 
-
-   compile_fj_to_c(funs, n, output_file, parameters=length(pars)>0, 
-                         fun_name=fun_name, threads=threads, opt=opt, keep_files=keep_files,
-                         number_type="__number_type__",
-                         sed_cmd=raw"s/\([0-9]*\)\.\/\([0-9]*\)\./\1.q\/\2.q/g",
-                         opening="""
-#if defined(COMPLEX)                
-#  include<complex.h>
-#  define pow cpow
-#  define __number_type__ double complex
-#elif defined(FLOAT128)
-#  include<quadmath.h>
-#  define pow powq
-#  define __number_type__ __float128 
-#elif defined(COMPLEX128)
-#  include<quadmath.h>
-#  define pow cpowq
-#  define __number_type__ __complex128 
-#else
-#  include<math.h>
-#  define __number_type__ double 
-#endif
-""")
+    compile_fj_to_c(funs, n, output_file, parameters=length(pars)>0, 
+                    fun_name=fun_name, threads=threads, opt=opt, keep_files=keep_files,
+                    number_type="__number_type__",
+                    sed_cmd=raw"s/\([0-9]*\)\.\/\([0-9]*\)\./\1.q\/\2.q/g;s/pow(/ipow(/g",
+                    opening=_default_opening)
 end
 
 
