@@ -23,7 +23,7 @@ function call_form(input::String; threads=1, keep_files::Bool=false)
 end    
 
     
-function compile_f(fun, n::Integer; pars::Vector=[], threads=1, opt::String="O2", keep_files::Bool=false)
+function compile_f(fun, n::Integer; parameters::Bool=false, threads=1, opt::String="O2", keep_files::Bool=false)
     fun = string(fun)
     fun = replace(replace(fun,"[" => "("), "]" => ")")
     input = string("""
@@ -31,7 +31,7 @@ Off Statistics;
 Format $(opt);
 V x;
 V p;
-Local F = $(fun) 
+Local F = $(fun); 
 #write <> "begin"
 Print;
 .sort;
@@ -42,13 +42,13 @@ Print;
     out = call_form(input, threads=threads)
     out = replace(replace(out,"(" => "["), ")" => "]")    
     if parameters
-        eval(parse(string("(x,p)->",out)))
+        eval(Meta.parse(string("(x,p)->",out)))
     else
-        eval(parse(string("x->",out)))
+        eval(Meta.parse(string("x->",out)))
     end
 end
 
-function compile_f(fun, vars::Vector; threads=1, opt::String="O2", keep_files::Bool=false)
+function compile_f(fun, vars::Vector; pars::Vector=[], threads=1, opt::String="O2", keep_files::Bool=false)
     fun = string(fun)
     n = length(vars)
     for j=1:n
@@ -122,9 +122,9 @@ Local FF = H[u^0];
     out = call_form(input, threads=threads, keep_files=keep_files)
     out = replace(replace(out,"(" => "["), ")" => "]")    
     if parameters
-        eval(parse(string("(G,x,p)->",out)))
+        eval(Meta.parse(string("(G,x,p)->",out)))
     else
-        eval(parse(string("(G,x)->",out)))
+        eval(Meta.parse(string("(G,x)->",out)))
     end
 end    
 
@@ -236,9 +236,9 @@ B u,v;
     out = call_form(input, threads=threads, keep_files=keep_files)
     out = replace(replace(out,"(" => "["), ")" => "]")    
     if parameters
-        eval(parse(string("(F,J,x,p)->",out)))
+        eval(Meta.parse(string("(F,J,x,p)->",out)))
     else
-        eval(parse(string("(F,J,x)->",out)))
+        eval(Meta.parse(string("(F,J,x)->",out)))
     end
 end    
 
