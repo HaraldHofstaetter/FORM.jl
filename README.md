@@ -46,6 +46,9 @@ julia> @polyvar x y a
 
 julia> g1 = compile_f(x^2+3y^2*x+a^2, [x, y], pars=[a])
 #41 (generic function with 1 method)
+
+julia> g1([2,3],[4])
+74
 ```
 
 ### `compile_fg`: generate efficient code for a polynomial and its gradient
