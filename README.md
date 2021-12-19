@@ -20,7 +20,7 @@ Pkg.add(PackageSpec(url="https://github.com/HaraldHofstaetter/FORM.jl"))
 julia> using FORM
 
 #Compile polynomial, polynomial given as string,
-#variables given as vector of strings;
+#variables given as vector of strings:
 julia> f = compile_f("x^2+3*y^2*x+1", ["x", "y"])
 #37 (generic function with 1 method)
 
@@ -53,13 +53,13 @@ julia> g1([2,3],[4])
 
 ### `compile_fg`: generate efficient code for a polynomial and its gradient
 ```julia
-julia> fg = compile_fg("x^2+3*y^2*x+1", ["x", "y"])
+julia> fg! = compile_fg("x^2+3*y^2*x+1", ["x", "y"])
 #43 (generic function with 1 method)
 
 #Allocate array for gradient:
 julia> G = zeros(2);
 
-julia> fg(G, [2.0, 3.0])
+julia> fg!(G, [2.0, 3.0])
 59.0
 
 julia> G
@@ -71,6 +71,10 @@ julia> G
 ```julia
 julia> fj! = compile_fj(["x^2+y^2-3", "x+y-2"], ["x","y"])
 #45 (generic function with 1 method)
+
+julia> F = zeros(2);
+
+julia> J = zeros(2,2);
 
 julia> fj!(F, J, [2.0, 3.0]);
 
