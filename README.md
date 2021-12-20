@@ -123,7 +123,7 @@ Results of Nonlinear Solver Algorithm
 Our real-world test problem is the polynomial system contained in the 
 file [`cf8.txt`](https://github.com/HaraldHofstaetter/FORM.jl/blob/master/test/cf8.txt),
 which was 
-generated with [`Expocon.mpl`](https://github.com/HaraldHofstaetter/Expocon.mpl), a Maple package for the generation of order conditions for the construction of exponential integrators, see
+generated with [`Expocon.mpl`](https://github.com/HaraldHofstaetter/Expocon.mpl), a Maple package for the generation of order conditions for exponential integrators, see
 >[1] [H. Hofstätter](http://www.harald-hofstaetter.at), [W. Auzinger](http://www.asc.tuwien.ac.at/~winfried), [O. Koch](http://othmar-koch.org), [An Algorithm for Computing Coefficients of Words in Expressions Involving Exponentials and its Application to the Construction of Exponential Integrators](https://arxiv.org/pdf/1912.01399), [Proceedings of CASC 2019](http://www.casc.cs.uni-bonn.de/2019/), [Lecture Notes in Computer Science 11661, pp. 197-214](https://doi.org/10.1007/978-3-030-26831-2_14).
 
 There, the generation of the polynomial system in [`cf8.txt`](https://github.com/HaraldHofstaetter/FORM.jl/blob/master/test/cf8.txt) is described in Section 4.3.
