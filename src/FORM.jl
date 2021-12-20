@@ -13,7 +13,18 @@ function call_form(input::String; threads=1, keep_files::Bool=false)
     open(input_file, "w") do f
         write(f, input)
     end
-    run(pipeline(`$(path)/tform -w$(threads) -t $(tdir) -q $(input_file) `, stdout=output_file))
+    try
+        run(pipeline(`$(path)/tform -w$(threads) -t $(tdir) -q $(input_file) `, stdout=output_file))
+    catch 
+        println(stderr, "Error running FORM:")
+        print(stderr,join(readlines(output_file),'\n'))
+        print("\n\n")
+        if !keep_files
+            rm(input_file) 
+            rm(output_file) 
+        end
+        rethrow()
+    end
     output = join(readlines(output_file),'\n')
     if !keep_files
         rm(input_file) 
