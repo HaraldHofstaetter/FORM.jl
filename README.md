@@ -96,7 +96,7 @@ julia> using NLsolve
 
 julia> using FORM
 
-julia> f = compile_f("x^2+3*y^2*x+1", ["x", "y"]);
+julia> fj! = compile_fj(["x^2+y^2-3", "x+y-2"], ["x","y"]);
 
 julia> X = rand(2)
 2-element Vector{Float64}:
